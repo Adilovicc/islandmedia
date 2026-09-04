@@ -1,0 +1,70 @@
+/* .im-label ported from docs/brand/island-media.css; the control geometry
+   follows .im-control's focus treatment and the search fields in
+   ui-examples.css. */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--im-space-2);
+}
+
+.label {
+  font-size: var(--im-text-label-size);
+  font-weight: var(--im-text-label-weight);
+  line-height: var(--im-text-label-line);
+  letter-spacing: var(--im-text-label-tracking);
+  text-transform: uppercase;
+}
+
+.required {
+  margin-left: var(--im-space-1);
+  color: var(--im-signal-coral);
+}
+
+.control {
+  width: 100%;
+  min-height: var(--im-tap-target);
+  padding: 0 var(--im-space-4);
+  border: 1px solid var(--im-border-strong);
+  border-radius: var(--im-radius-control);
+  background: var(--im-white);
+  color: var(--im-carbon);
+}
+
+.control:focus-visible {
+  outline: 0;
+  border-color: var(--im-signal-coral);
+  box-shadow: var(--im-focus-ring);
+}
+
+.control:disabled {
+  background: var(--im-surface-sunken);
+  color: var(--im-text-muted);
+  cursor: not-allowed;
+}
+
+.textarea {
+  min-height: var(--im-space-8);
+  padding: var(--im-space-3) var(--im-space-4);
+  line-height: var(--im-text-body-line);
+  resize: vertical;
+}
+
+.invalid {
+  border-color: var(--im-danger);
+}
+
+.hint {
+  margin: 0;
+  color: var(--im-text-muted);
+  font-size: var(--im-text-small-size);
+  line-height: var(--im-text-small-line);
+}
+
+.error {
+  margin: 0;
+  color: var(--im-danger);
+  font-size: var(--im-text-small-size);
+  font-weight: var(--im-text-label-weight);
+  line-height: var(--im-text-small-line);
+}

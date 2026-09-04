@@ -1,0 +1,58 @@
+/* Ported from .request-table / .request-row in docs/brand/ui-examples.css.
+   A real <table> rather than a CSS grid: rows are tabular data, and a screen
+   reader should be able to announce the column a cell belongs to. */
+
+.wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.head th {
+  padding: var(--im-space-3) var(--im-space-5);
+  border-bottom: 1px solid var(--im-border);
+  background: var(--im-surface-sunken);
+  color: var(--im-text-muted);
+  font-size: var(--im-text-label-size);
+  font-weight: var(--im-text-label-weight);
+  letter-spacing: var(--im-text-label-tracking);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.row {
+  border-bottom: 1px solid var(--im-border);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.cell {
+  padding: var(--im-space-4) var(--im-space-5);
+  font-size: var(--im-text-small-size);
+  line-height: var(--im-text-small-line);
+  vertical-align: middle;
+}
+
+/* The first column of a row is its identity — the brand kit sets it in the
+   body weight rather than the label weight. */
+.strong {
+  color: var(--im-carbon);
+  font-size: var(--im-text-body-size);
+  font-weight: var(--im-text-label-weight);
+}
+
+.muted {
+  color: var(--im-text-muted);
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}

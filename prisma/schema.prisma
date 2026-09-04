@@ -1,0 +1,730 @@
+// =============================================================================
+// Island Media Co — out-of-home advertising booking & fulfilment
+// =============================================================================
+//
+// CORE IDEA
+// The unit of sale is a SURFACE for a PERIOD. Not a vehicle, not a site — the
+// advertising surface itself. One bus produces several Assets (rear panel,
+// interior screens) because it carries several surfaces, each sold separately.
+//
+// SELL SIDE vs DO SIDE
+//   Contract      — the commercial agreement with the advertiser. Sell side.
+//   Job           — a work order for a fitter. Do side. Nobody signs it.
+//   ContractLine  — the hinge. One asset, one window: commercial to management,
+//                   inventory to the constraint, a job site to the fitter.
+// A fitter never sees a Contract and doesn't need to: they need an address, a
+// surface, a date and what to put up. (Real agencies often subcontract fitting,
+// which would introduce supplier-side contracts — out of scope, fitters here
+// are internal staff.)
+//
+// DATE CONVENTION  (read this before touching anything)
+// All booking windows are HALF-OPEN: [startsOn, endsOn)
+//   startsOn — inclusive, always a Monday
+//   endsOn   — EXCLUSIVE, always a Monday
+// A two-week booking from Mon 07 Sep is startsOn=2026-09-07, endsOn=2026-09-21.
+// The last day the ad is live is Sun 20 Sep.
+//
+// This is why a campaign ending 21 Sep and one starting 21 Sep do NOT conflict.
+// Mixing inclusive and exclusive ends is the single most likely source of
+// off-by-one bugs here, so the rule is: endsOn is never a day the ad is live.
+//
+// weeks = (endsOn - startsOn) / 7  — always a whole number, enforced in SQL.
+//
+// LIFECYCLE  — where inventory is actually held
+//   Client submits request      holds NOTHING. Overlapping requests are fine.
+//   Management converts         Contract DRAFT, lines HELD + holdExpiresAt.
+//                               ← first block. First conversion wins, and the
+//                                 exclusion constraint decides, not a queue.
+//   Management issues           document generated and FROZEN. Contract ISSUED.
+//                               ← lines still HELD; client sees a deadline.
+//   Client accepts & pays       lines BOOKED (firm). Contract CONFIRMED.
+//                               ← jobs generated HERE. No crew is dispatched
+//                                 for an unpaid contract.
+//   First fit completed         ACTIVE
+//   All removals completed      COMPLETED
+//   Deadline passes unpaid      lines RELEASED, Contract CANCELLED
+//
+// Note: real OOH usually trades on credit terms and invoices after the campaign
+// runs — the genuine gate is the countersigned contract, not payment. A payment
+// gate was chosen because it makes the hold-expiry mechanic demonstrable.
+//
+// MONEY
+// Integer minor units (pence). No floats, no Decimal-vs-JS rounding surprises.
+//
+// WHAT THE DATABASE ENFORCES vs WHAT THE APP ENFORCES
+//   DB   — static double-booking (GiST exclusion), digital loop capacity
+//          (trigger with a row lock), Monday alignment, whole weeks.
+//                                              → see 001_availability_constraints.sql
+//   APP  — contract state transitions, minWeeks / stepWeeks validation,
+//          "routes only on depots", request-item availability at review time.
+// =============================================================================
+
+generator client {
+  // Prisma 7: `prisma-client-js` is in maintenance mode and `output` is required.
+  // The client is generated into src/, not node_modules, so it is importable
+  // from the app under the "@/" alias and survives a clean install.
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+
+  // Prisma 7 removed `url` / `directUrl` from the schema. Migrate reads its
+  // connection string from prisma.config.ts (pointed at the DIRECT Neon URL);
+  // the runtime client is constructed with a driver adapter over the POOLED
+  // one. See src/lib/db.ts.
+
+  // Required by the GiST exclusion constraint in the second migration: without
+  // btree_gist there is no GiST operator class for `"assetId" WITH =`.
+  extensions = [btree_gist]
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum Role {
+  ADMIN // agency staff — management view
+  FITTER // field crew — mobile view
+  CLIENT // advertiser — portal
+}
+
+/// WHERE the surface physically is. Deliberately orthogonal to Medium:
+/// a billboard can be digital, a bus interior can be a static card.
+enum AssetType {
+  BILLBOARD // roadside panel
+  BUS_EXTERIOR // rear / side / T-side panel
+  BUS_INTERIOR // interior card or screen
+  SCREEN // standalone public display (mall, transport hub)
+  DOOR // retail / washroom door
+  VAN // wrapped van or dedicated ad-van panel
+  CHARGING_POINT // EV charge point panel or screen
+}
+
+/// The field that actually changes behaviour. It drives three things:
+///   1. occupancy model  — exclusive (static) vs slot capacity (digital)
+///   2. whether FIT / REMOVAL jobs are generated at all
+///   3. which artwork spec applies
+///
+/// Note this is NOT "physical vs electronic object" — it is how the surface is
+/// occupied. A printed poster inside a bus is STATIC; the screen next to it is
+/// DIGITAL. Both are on the same vehicle.
+enum Medium {
+  STATIC // printed vinyl or paper. Exclusive. Needs physical fit + removal.
+  DIGITAL // screen content. Shared loop. Pushed remotely, no field work.
+}
+
+enum SiteKind {
+  DEPOT // bus / van depot — operational, and the only kind that carries routes
+  RETAIL // shopping centre, supermarket — parent for DOOR assets
+  ROADSIDE // billboard location
+  TRANSPORT_HUB // station, terminal, airport
+  CHARGING_HUB // EV charging site
+}
+
+enum BookingRequestStatus {
+  SUBMITTED
+  REVIEWING
+  CONVERTED // every item became a contract line
+  PARTIALLY_CONVERTED // some items unavailable or dropped; the rest converted
+  DECLINED
+  WITHDRAWN
+}
+
+/// Per-item outcome. Exists because whole-request rejection is commercially
+/// absurd: no agency tells a client their ten-panel campaign is dead because
+/// one bus went elsewhere. They say "nine confirmed, one gone, here are two
+/// alternatives".
+enum BookingRequestItemStatus {
+  PENDING
+  UNAVAILABLE // taken between submission and review — offer an alternative
+  CONVERTED // copied to a ContractLine
+  DROPPED // management or client removed it
+}
+
+enum ContractStatus {
+  DRAFT // being built by ops. Lines HELD (soft block, expires).
+  ISSUED // document generated + frozen. Awaiting client acceptance.
+  CONFIRMED // accepted + paid. Lines BOOKED. Jobs generated.
+  ACTIVE // first fit completed
+  COMPLETED // all removals done
+  CANCELLED
+}
+
+enum ContractLineStatus {
+  HELD // soft hold, expires — blocks other bookings but reclaimable
+  BOOKED // firm
+  RELEASED // hold expired or draft abandoned — no longer blocks
+  CANCELLED // was booked, then cancelled — no longer blocks
+}
+
+enum JobKind {
+  FIT
+  REMOVAL
+}
+
+enum JobStatus {
+  SCHEDULED // exists, no fitter yet
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  FAILED // access denied, damaged surface, vehicle off-road
+  CANCELLED
+}
+
+enum ProofKind {
+  IMAGE
+  VIDEO
+}
+
+enum DocumentFormat {
+  DOCX
+  PDF
+}
+
+enum ActivitySubject {
+  BOOKING_REQUEST
+  CONTRACT
+  CONTRACT_LINE
+  JOB
+  DOCUMENT
+  CLIENT
+  ASSET
+}
+
+// =============================================================================
+// GEOGRAPHY  — presentation only. Never touches availability.
+// =============================================================================
+
+/// An uploaded image used as the map backdrop. No GPS, no georeferencing:
+/// management clicks to place things and we store image-relative coordinates.
+///
+/// The prototype ships one canvas. The relation is kept because coordinates are
+/// meaningless without knowing which image they belong to — modelling it now
+/// costs one nullable column and makes a second map a data change rather than a
+/// migration.
+model MapCanvas {
+  id          String   @id @default(cuid())
+  name        String
+  blobUrl     String
+  imageWidth  Int
+  imageHeight Int
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  sites  Site[]
+  routes Route[]
+}
+
+/// A physical location that groups surfaces: a depot holding buses, a shopping
+/// centre holding doors, a roadside spot holding one or two billboard faces.
+model Site {
+  id      String   @id @default(cuid())
+  name    String
+  kind    SiteKind
+  address String // what a fitter actually needs — a street address, not a pin
+  notes   String?
+
+  // Normalised 0..1 relative to the canvas image. Resolution-independent and
+  // survives swapping the map image.
+  mapCanvasId String?
+  mapCanvas   MapCanvas? @relation(fields: [mapCanvasId], references: [id])
+  mapX        Float?
+  mapY        Float?
+
+  assets Asset[]
+
+  /// DEPOTS ONLY. Prisma cannot express a conditional relation, so the rule is
+  /// enforced in the server action and the UI simply doesn't offer route
+  /// assignment on other site kinds.
+  routes Route[] // implicit m-n
+
+  @@index([kind])
+  @@index([mapCanvasId])
+}
+
+/// Bus / van routes, drawn on the map as a polyline. Sold as an audience story:
+/// "this depot's vehicles serve routes 1, 3 and 9".
+///
+/// ATTACHED TO SITES, NOT ASSETS — and that is the honest model. Operators
+/// reassign vehicles between routes constantly, so "Bus 42 drives route 9"
+/// would be false precision a client could reasonably feel misled by. "Bus 42
+/// operates out of Georgetown depot, which serves these routes" stays true
+/// tomorrow. It is also why real bus advertising is sold as packages rather
+/// than by registration plate.
+///
+/// DELIBERATE LIMIT: routes are decorative. They must never feed availability
+/// or conflict logic. If route membership ever affects bookability, the
+/// occupancy model breaks.
+///
+/// Shared library: created once, attachable to any depot.
+model Route {
+  id          String  @id @default(cuid())
+  code        String  @unique // "1", "9A"
+  name        String
+  colorHex    String  @default("#FF5A3D")
+  description String?
+
+  /// Array of {x, y} normalised points forming the polyline. Json rather than a
+  /// point table because it is drawn and rendered whole, never queried into.
+  points Json
+
+  mapCanvasId String?
+  mapCanvas   MapCanvas? @relation(fields: [mapCanvasId], references: [id])
+
+  sites Site[] // depots served by this route
+
+  @@index([mapCanvasId])
+}
+
+// =============================================================================
+// INVENTORY
+// =============================================================================
+
+model Asset {
+  id   String @id @default(cuid())
+  code String @unique // "BB-014-N", "BUS-42-REAR"
+  name String
+
+  type   AssetType
+  medium Medium
+
+  siteId String
+  site   Site   @relation(fields: [siteId], references: [id])
+
+  /// Groups surfaces that travel together on one physical object — "Bus 42"
+  /// owns both an exterior panel and interior screens; a two-faced billboard
+  /// shares a structure. A free-text carrier avoids a Vehicle table that
+  /// nothing in this loop would read. Deferred, not overlooked.
+  carrier String?
+
+  /// Which way it faces. A two-sided billboard is TWO Assets — different
+  /// traffic, different audience, sold independently.
+  orientation String?
+
+  imageUrl String? // photo of the actual surface — clients buy what they see
+  notes    String?
+
+  // --- Specification -------------------------------------------------------
+  widthMm     Int?
+  heightMm    Int?
+  /// Free text on purpose: "6000x2000px @150dpi, 3mm bleed" vs
+  /// "1080x1920 MP4, 10s, muted". Shows we know formats differ without
+  /// building an artwork validation pipeline (explicitly out of scope).
+  artworkSpec String?
+
+  // --- Digital only --------------------------------------------------------
+  /// Total slots in the display loop. A digital line consumes >= 1 slot;
+  /// capacity is the SUM of slots live at any instant, not a binary conflict.
+  /// Nothing caps a single buyer: one advertiser may take the whole loop.
+  loopSlots   Int?
+  slotSeconds Int?
+
+  // --- Trading rules -------------------------------------------------------
+  weekRatePence Int
+  /// Shortest bookable run. Billboard 2, van 1.
+  minWeeks      Int  @default(2)
+  /// Increment above the minimum. 1 => 2,3,4,5 weeks. 2 => 2,4,6 only.
+  stepWeeks     Int  @default(1)
+  /// Copy deadline — earliest start is today + leadTimeDays, then rounded up
+  /// to the next Monday. Static needs print + dispatch; digital needs less.
+  leadTimeDays  Int  @default(7)
+
+  /// Audience estimate. Never used in logic — it's what the client is buying.
+  weeklyImpressions Int?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  requestItems BookingRequestItem[]
+  lines        ContractLine[]
+
+  @@index([siteId])
+  @@index([type, medium])
+  @@index([isActive])
+}
+
+// =============================================================================
+// PEOPLE
+// =============================================================================
+
+model Client {
+  id           String  @id @default(cuid())
+  name         String // legal entity
+  tradingName  String?
+  contactName  String
+  contactEmail String
+  contactPhone String?
+  address      String?
+
+  createdAt DateTime @default(now())
+
+  users     User[]
+  requests  BookingRequest[]
+  contracts Contract[]
+  events    ActivityEvent[]
+}
+
+/// Auth is simulated: a signed cookie carries { userId, role } and a dev-only
+/// switcher swaps identity. The AUTHORISATION seam is real — every server
+/// action checks role and, for CLIENT, scopes queries by clientId. Only the
+/// identity source is fake, so wiring a real IdP is a login route, not a
+/// refactor.
+model User {
+  id    String  @id @default(cuid())
+  email String  @unique
+  name  String
+  role  Role
+  phone String?
+
+  /// Set for CLIENT users only. This is the tenancy boundary for the portal.
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  submittedRequests  BookingRequest[]   @relation("RequestSubmittedBy")
+  reviewedRequests   BookingRequest[]   @relation("RequestReviewedBy")
+  createdContracts   Contract[]         @relation("ContractCreatedBy")
+  generatedDocuments ContractDocument[]
+  assignedJobs       Job[]              @relation("JobAssignee")
+  uploadedProofs     JobProof[]
+  activityEvents     ActivityEvent[]
+
+  @@index([role])
+  @@index([clientId])
+}
+
+// =============================================================================
+// DEMAND — what the client asks for
+// =============================================================================
+
+/// An enquiry. Deliberately NOT a contract: it holds nothing, blocks nothing,
+/// and touches no constraint. Two clients may request the same panel for the
+/// same window — that is not a conflict, it is a queue of interest.
+///
+/// Holding begins only when a ContractLine is created, which is why competing
+/// requests never need auto-declining: the exclusion constraint rejects the
+/// second conversion and management marks that one item UNAVAILABLE.
+model BookingRequest {
+  id     String               @id @default(cuid())
+  ref    String               @unique // "REQ-2026-0042"
+  status BookingRequestStatus @default(SUBMITTED)
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  submittedById String
+  submittedBy   User   @relation("RequestSubmittedBy", fields: [submittedById], references: [id])
+
+  message String?
+
+  reviewedAt    DateTime?
+  reviewedById  String?
+  reviewedBy    User?     @relation("RequestReviewedBy", fields: [reviewedById], references: [id])
+  declineReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items    BookingRequestItem[]
+  contract Contract?
+
+  @@index([clientId, status])
+  @@index([status, createdAt])
+}
+
+/// Windows live on the ITEM, not the request — mirroring ContractLine so
+/// conversion is a straight map. Also means a request can already span
+/// different windows per asset, even though the portal UI only offers one.
+///
+/// NO FK TO ContractLine: conversion COPIES, it does not rename. Management may
+/// realign dates to Mondays, adjust the rate, drop an item, or split a request
+/// across two contracts.
+///
+/// Availability is computed when management OPENS the request, not written
+/// eagerly whenever something else gets booked — no background sweep, no
+/// fan-out writes, and the answer is always current. A status is persisted only
+/// once management acts.
+model BookingRequestItem {
+  id String @id @default(cuid())
+
+  requestId String
+  request   BookingRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id])
+
+  startsOn DateTime                 @db.Date // inclusive Monday
+  endsOn   DateTime                 @db.Date // EXCLUSIVE Monday
+  slots    Int                      @default(1) // digital only; ignored for static
+  status   BookingRequestItemStatus @default(PENDING)
+
+  @@index([requestId])
+  @@index([assetId])
+}
+
+// =============================================================================
+// COMMERCIAL — the agreement
+// =============================================================================
+
+model Contract {
+  id     String         @id @default(cuid())
+  number String         @unique // "IMC-2026-0117"
+  status ContractStatus @default(DRAFT)
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  /// Provenance: which enquiry became this. Unique — one request converts once.
+  sourceRequestId String?         @unique
+  sourceRequest   BookingRequest? @relation(fields: [sourceRequestId], references: [id])
+
+  createdById String
+  createdBy   User   @relation("ContractCreatedBy", fields: [createdById], references: [id])
+
+  currency      String @default("GBP")
+  subtotalPence Int    @default(0)
+
+  /// Both simulated. The brief rules out real payments and real auth, so the
+  /// portal's "Accept & pay" action sets both timestamps: signedAt stands in
+  /// for a returned countersigned copy, paidAt for settlement. Together they
+  /// gate HELD -> BOOKED and trigger job generation.
+  signedAt DateTime?
+  paidAt   DateTime?
+
+  issuedAt     DateTime?
+  confirmedAt  DateTime?
+  activatedAt  DateTime?
+  completedAt  DateTime?
+  cancelledAt  DateTime?
+  cancelReason String?
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines     ContractLine[]
+  documents ContractDocument[]
+
+  @@index([clientId, status])
+  @@index([status])
+}
+
+/// ONE ASSET, ONE WINDOW. This is where availability actually lives — the
+/// Contract is just the commercial wrapper.
+///
+/// Gaps come free: a September line and a November line on the same asset don't
+/// overlap, so nothing conflicts. The model permits gaps; the portal UI simply
+/// doesn't expose "add another period". Management can.
+model ContractLine {
+  id String @id @default(cuid())
+
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id])
+
+  startsOn DateTime @db.Date // inclusive Monday
+  endsOn   DateTime @db.Date // EXCLUSIVE Monday
+
+  status ContractLineStatus @default(HELD)
+
+  /// DENORMALISED FROM Asset.medium — and it has to be.
+  ///
+  /// Set at creation as (asset.medium == STATIC). It records HOW this line
+  /// occupies its surface: the whole thing, or a share of a loop.
+  ///
+  /// It must live on the row because a Postgres exclusion constraint tests a
+  /// new row against existing ones using only what is in the index — no
+  /// planner, no joins, no subqueries. It cannot reach across to Asset to ask
+  /// what medium this surface is.
+  ///
+  /// The flag routes the line to one of two enforcement mechanisms:
+  ///   true  -> GiST exclusion constraint. Any overlap rejected.
+  ///   false -> skipped by the constraint, caught by the capacity trigger.
+  ///
+  /// Copying is also semantically right: a line should be governed by the rules
+  /// in force when it was sold. Reading medium live would silently rewrite the
+  /// terms of already-signed inventory if an asset were ever converted from
+  /// static to digital.
+  isExclusive Boolean
+
+  /// Digital only: slots consumed out of Asset.loopSlots. No cap on a single
+  /// buyer — one advertiser taking the whole loop is a good outcome.
+  slots Int @default(1)
+
+  /// Soft holds expire so abandoned drafts don't sterilise inventory.
+  /// Set when the contract is issued; cleared when the client pays.
+  holdExpiresAt DateTime?
+
+  // Priced at the moment of sale, not read live from Asset — a rate card
+  // change must never silently alter an issued contract or its document.
+  weeks          Int
+  weekRatePence  Int
+  lineTotalPence Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobs Job[]
+
+  @@index([contractId])
+  @@index([assetId, startsOn, endsOn])
+  @@index([status])
+}
+
+/// Generated ONCE when the contract is issued, then frozen. Never re-rendered
+/// on download.
+///
+/// This is the sharpest decision in the build: a document that re-renders each
+/// time isn't a contract, it's a report. If the rate card or client address
+/// changes tomorrow, the bytes the client signed must not change with it. The
+/// stored sha256 makes that verifiable.
+///
+/// Versioned rather than overwritten so an amended contract keeps its history.
+model ContractDocument {
+  id String @id @default(cuid())
+
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  version Int            @default(1)
+  format  DocumentFormat @default(DOCX)
+
+  blobUrl  String
+  blobKey  String
+  sha256   String
+  byteSize Int
+
+  generatedAt   DateTime @default(now())
+  generatedById String
+  generatedBy   User     @relation(fields: [generatedById], references: [id])
+
+  @@unique([contractId, version])
+  @@index([contractId])
+}
+
+// =============================================================================
+// FULFILMENT — the physical work
+// =============================================================================
+
+/// Auto-generated from a ContractLine when the contract is CONFIRMED — not when
+/// it is issued. No crew is dispatched for an unpaid contract.
+///
+/// Never hand-created: FIT lands before startsOn (allowing lead time), REMOVAL
+/// on endsOn — which, being the exclusive end, is the first day the surface is
+/// free. That's the half-open convention paying rent.
+///
+/// DIGITAL LINES GENERATE NO JOBS. Content is pushed remotely; there is no van
+/// and no squeegee. One conditional in the generator, driven entirely by the
+/// data model.
+model Job {
+  id String @id @default(cuid())
+
+  contractLineId String
+  contractLine   ContractLine @relation(fields: [contractLineId], references: [id], onDelete: Cascade)
+
+  kind   JobKind
+  status JobStatus @default(SCHEDULED)
+
+  scheduledFor DateTime @db.Date
+  /// "AM" / "PM" / "Depot changeover" — fitting is batched, so precision here
+  /// is theatre. A crew does a whole depot in one run.
+  timeWindow   String?
+
+  assignedToId String?
+  assignedTo   User?   @relation("JobAssignee", fields: [assignedToId], references: [id])
+
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  instructions  String?
+  fitterNotes   String?
+  failureReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  proofs JobProof[]
+
+  @@index([assignedToId, scheduledFor])
+  @@index([status, scheduledFor])
+  @@index([contractLineId])
+}
+
+/// Proof of posting. Not a nice-to-have — in OOH this IS the deliverable.
+/// The advertiser paid for their ad to be on twelve buses and cannot go and
+/// check. Photographic evidence discharges the agency's obligation, which is
+/// exactly why the fitter uploads it and the client sees it in the portal.
+model JobProof {
+  id String @id @default(cuid())
+
+  jobId String
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  kind        ProofKind
+  blobUrl     String
+  blobKey     String
+  contentType String
+  byteSize    Int
+  caption     String?
+
+  /// When the photo was taken, vs when it reached us. A fitter in a depot
+  /// basement uploads later; the capture time is the one that matters.
+  capturedAt DateTime @default(now())
+  uploadedAt DateTime @default(now())
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  @@index([jobId])
+}
+
+// =============================================================================
+// AUDIT
+// =============================================================================
+
+/// Append-only. Never updated, never deleted.
+///
+/// One table, two audiences, split by clientVisible:
+///   client sees       request received, contract issued, ad installed (+photo),
+///                     campaign ended
+///   management also   who declined what and why, rate overrides, failed jobs
+///                     and their reasons, hold expiries
+///
+/// Polymorphic by (subjectType, subjectId) rather than nullable FKs per entity —
+/// a log that needs a schema migration every time a new event type appears is a
+/// log that quietly stops being written to.
+model ActivityEvent {
+  id String @id @default(cuid())
+
+  subjectType ActivitySubject
+  subjectId   String
+  /// Past tense, dotted: "contract.issued", "job.completed", "proof.uploaded"
+  verb        String
+
+  actorId String?
+  actor   User?   @relation(fields: [actorId], references: [id])
+
+  /// Denormalised so the portal timeline is one indexed query, with no joins
+  /// across four tables to work out whether an event is visible to a client.
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
+
+  clientVisible Boolean @default(false)
+
+  summary String
+  payload Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([subjectType, subjectId])
+  @@index([clientId, clientVisible, createdAt])
+  @@index([createdAt])
+}

@@ -1,0 +1,43 @@
+/* Ported from .im-surface in docs/brand/island-media.css. */
+
+.card {
+  border: 1px solid var(--im-border);
+  border-radius: var(--im-radius-surface);
+  background: var(--im-white);
+}
+
+.padded {
+  padding: var(--im-space-5);
+}
+
+.tight {
+  padding: var(--im-space-4);
+}
+
+.flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.raised {
+  box-shadow: var(--im-shadow-surface);
+}
+
+.feature {
+  border-radius: var(--im-radius-feature);
+}
+
+.title {
+  margin: 0 0 var(--im-space-2);
+  font-size: var(--im-text-h3-size);
+  font-weight: var(--im-text-h3-weight);
+  line-height: var(--im-text-h3-line);
+  letter-spacing: var(--im-text-heading-tracking);
+}
+
+.body {
+  margin: 0;
+  color: var(--im-text-muted);
+  font-size: var(--im-text-small-size);
+  line-height: var(--im-text-small-line);
+}

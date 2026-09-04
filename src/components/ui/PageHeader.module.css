@@ -1,0 +1,43 @@
+/* .im-label ported as the eyebrow; layout follows .management-topbar and
+   .catalogue-heading in docs/brand/ui-examples.css. */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--im-space-5);
+  margin-bottom: var(--im-space-6);
+}
+
+.eyebrow {
+  margin: 0 0 var(--im-space-2);
+  color: var(--im-signal-coral);
+  font-size: var(--im-text-label-size);
+  font-weight: var(--im-text-label-weight);
+  line-height: var(--im-text-label-line);
+  letter-spacing: var(--im-text-label-tracking);
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--im-text-h1-size);
+  font-weight: var(--im-text-h1-weight);
+  line-height: var(--im-text-h1-line);
+  letter-spacing: var(--im-text-heading-tracking);
+}
+
+.description {
+  max-width: 62ch;
+  margin: var(--im-space-3) 0 0;
+  color: var(--im-text-muted);
+  font-size: var(--im-text-body-lg-size);
+  line-height: var(--im-text-body-lg-line);
+}
+
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--im-space-3);
+}

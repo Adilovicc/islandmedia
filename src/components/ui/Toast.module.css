@@ -1,0 +1,64 @@
+.viewport {
+  position: fixed;
+  right: var(--im-space-5);
+  bottom: var(--im-space-5);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: var(--im-space-3);
+  width: min(380px, calc(100vw - var(--im-space-6)));
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--im-space-3);
+  padding: var(--im-space-4);
+  border: 1px solid var(--im-border);
+  border-left: var(--im-space-1) solid var(--im-concrete);
+  border-radius: var(--im-radius-control);
+  background: var(--im-white);
+  box-shadow: var(--im-shadow-surface);
+}
+
+.success {
+  border-left-color: var(--im-success);
+}
+
+.danger {
+  border-left-color: var(--im-danger);
+}
+
+.info {
+  border-left-color: var(--im-info);
+}
+
+.content {
+  flex: 1;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--im-text-small-size);
+  font-weight: var(--im-text-label-weight);
+  line-height: var(--im-text-small-line);
+}
+
+.description {
+  margin: var(--im-space-1) 0 0;
+  color: var(--im-text-muted);
+  font-size: var(--im-text-small-size);
+  line-height: var(--im-text-small-line);
+}
+
+.dismiss {
+  border: 0;
+  background: transparent;
+  color: var(--im-text-muted);
+  cursor: pointer;
+}
+
+.dismiss:focus-visible {
+  outline: 0;
+  box-shadow: var(--im-focus-ring);
+}

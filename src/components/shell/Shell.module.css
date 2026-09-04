@@ -1,0 +1,178 @@
+/* App shells for the three areas, ported from the layout rules in
+   docs/brand/ui-examples.css (.management-shell, .client-header, .mobile-*)
+   and checked against the three mockups. */
+
+/* --- Management: dark sidebar + main ------------------------------------- */
+
+.managementShell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-rows: auto 1fr;
+  background: var(--im-warm-white);
+}
+
+.managementBody {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  min-height: 0;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  padding: var(--im-space-6) var(--im-space-5);
+  background: var(--im-carbon);
+  color: var(--im-on-dark);
+}
+
+.nav {
+  display: grid;
+  gap: var(--im-space-2);
+  margin-top: var(--im-space-7);
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: var(--im-space-3);
+  min-height: var(--im-tap-target);
+  padding: 0 var(--im-space-4);
+  border-radius: var(--im-radius-control);
+  color: var(--im-on-dark-muted);
+  font-weight: var(--im-text-label-weight);
+  text-decoration: none;
+}
+
+.navLink:hover {
+  color: var(--im-on-dark);
+}
+
+.navLink:focus-visible {
+  outline: 0;
+  box-shadow: var(--im-focus-ring);
+}
+
+.navGlyph {
+  width: var(--im-space-2);
+  height: var(--im-space-2);
+  background: currentColor;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: var(--im-space-3);
+  margin-top: auto;
+  padding-top: var(--im-space-5);
+  border-top: 1px solid var(--im-on-dark-border);
+}
+
+.accountName {
+  display: block;
+  font-size: var(--im-text-small-size);
+  font-weight: var(--im-text-label-weight);
+}
+
+.accountRole {
+  display: block;
+  margin-top: var(--im-space-1);
+  color: var(--im-on-dark-muted);
+  font-size: var(--im-text-label-size);
+}
+
+.managementMain {
+  padding: var(--im-space-7) var(--im-space-7) var(--im-space-8);
+  min-width: 0;
+}
+
+/* --- Portal: light header + content -------------------------------------- */
+
+.portalShell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--im-warm-white);
+}
+
+.portalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--im-space-5);
+  min-height: var(--im-space-8);
+  padding: var(--im-space-4) var(--im-space-7);
+  border-bottom: 1px solid var(--im-border);
+  background: var(--im-warm-white);
+}
+
+.portalNav {
+  display: flex;
+  align-items: center;
+  gap: var(--im-space-6);
+}
+
+.portalNavLink {
+  color: var(--im-carbon);
+  font-size: var(--im-text-small-size);
+  font-weight: var(--im-text-label-weight);
+  text-decoration: none;
+}
+
+.portalNavLink:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--im-signal-coral);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 7px;
+}
+
+.portalMain {
+  flex: 1;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--im-space-7);
+}
+
+/* --- Field: mobile-first, dark header, bottom action bar ----------------- */
+
+.fieldShell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--im-warm-white);
+}
+
+.fieldHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--im-space-4);
+  padding: var(--im-space-4) var(--im-space-5);
+  background: var(--im-carbon);
+  color: var(--im-on-dark);
+}
+
+.fieldMain {
+  flex: 1;
+  padding: var(--im-space-5);
+}
+
+/* --- Shared -------------------------------------------------------------- */
+
+.avatar {
+  display: grid;
+  width: var(--im-tap-target);
+  height: var(--im-tap-target);
+  border-radius: var(--im-radius-full);
+  background: var(--im-signal-coral);
+  color: var(--im-carbon);
+  font-size: var(--im-text-small-size);
+  font-weight: var(--im-text-h1-weight);
+  place-items: center;
+}
+
+.signedOut {
+  margin: 0;
+  color: var(--im-text-muted);
+  font-size: var(--im-text-small-size);
+}

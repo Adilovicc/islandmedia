@@ -1,0 +1,159 @@
+/* =============================================================================
+   Island Media Co — design tokens
+   =============================================================================
+   The ONLY global stylesheet in the app. It holds the :root token block ported
+   from the brand kit (docs/brand/island-media-tokens.json) plus a minimal body
+   reset — nothing else.
+
+   The brand kit's global classes (.im-button-primary, .im-surface, .im-label,
+   .im-status-*, .im-public-frame) are deliberately NOT here. They are reference
+   implementations, and pasting them in would create live global classes that
+   compete with the CSS Modules for specificity. Each one is ported into the
+   matching component's .module.css instead.
+
+   Every .module.css consumes these variables. Never a raw hex, pixel spacing
+   value, radius or shadow. Tripwire:
+     grep -rEn "#[0-9a-fA-F]{3,6}\b" src --include=*.module.css
+   ========================================================================== */
+
+:root {
+  /* --- Colour ------------------------------------------------------------ */
+  --im-carbon: #101820;
+  --im-signal-coral: #ff5a3d;
+  --im-warm-white: #f6f4ef;
+  --im-atlantic: #17324d;
+  --im-concrete: #aab3ba;
+  --im-mist: #e3e7e4;
+  --im-white: #ffffff;
+  --im-success: #08734d;
+  --im-warning: #945500;
+  --im-danger: #c33232;
+  --im-info: #2367c7;
+
+  /* --- Type -------------------------------------------------------------- */
+  /* The brand token, verbatim. Avenir Next is licensed by Apple: it resolves on
+     a designer's Mac and nowhere else — not on Vercel, not on most reviewers'
+     machines. Kept intact so the intent is legible. */
+  --im-font: "Avenir Next", Avenir, "Helvetica Neue", Arial, sans-serif;
+
+  /* What the app actually renders with. Nunito Sans (loaded by next/font in the
+     root layout) is the closest Google Fonts humanist sans to Avenir Next, and
+     slots in behind the real thing but ahead of the generic fallbacks. */
+  --im-font-resolved:
+    "Avenir Next", Avenir, var(--font-nunito-sans), "Helvetica Neue", Arial,
+    sans-serif;
+
+  /* Type scale — size / line-height / weight triples, from
+     island-media-tokens.json. */
+  --im-text-display-size: 56px;
+  --im-text-display-line: 60px;
+  --im-text-display-weight: 700;
+
+  --im-text-h1-size: 40px;
+  --im-text-h1-line: 44px;
+  --im-text-h1-weight: 700;
+
+  --im-text-h2-size: 32px;
+  --im-text-h2-line: 36px;
+  --im-text-h2-weight: 700;
+
+  --im-text-h3-size: 24px;
+  --im-text-h3-line: 30px;
+  --im-text-h3-weight: 650;
+
+  --im-text-body-lg-size: 18px;
+  --im-text-body-lg-line: 28px;
+  --im-text-body-lg-weight: 450;
+
+  --im-text-body-size: 16px;
+  --im-text-body-line: 24px;
+  --im-text-body-weight: 450;
+
+  --im-text-small-size: 14px;
+  --im-text-small-line: 20px;
+  --im-text-small-weight: 450;
+
+  --im-text-label-size: 13px;
+  --im-text-label-line: 16px;
+  --im-text-label-weight: 650;
+  --im-text-label-tracking: 0.08em;
+
+  /* Headings in the brand kit are set tight. */
+  --im-text-heading-tracking: -0.025em;
+
+  /* --- Space ------------------------------------------------------------- */
+  --im-space-1: 4px;
+  --im-space-2: 8px;
+  --im-space-3: 12px;
+  --im-space-4: 16px;
+  --im-space-5: 24px;
+  --im-space-6: 32px;
+  --im-space-7: 48px;
+  --im-space-8: 64px;
+
+  /* --- Radius ------------------------------------------------------------ */
+  --im-radius-small: 6px;
+  --im-radius-control: 10px;
+  --im-radius-surface: 12px;
+  --im-radius-feature: 20px;
+  --im-radius-full: 999px;
+
+  /* --- Elevation --------------------------------------------------------- */
+  --im-shadow-surface: 0 8px 24px rgba(16, 24, 32, 0.1);
+  --im-focus-ring: 0 0 0 3px rgba(255, 90, 61, 0.28);
+
+  /* --- Derived surface tokens -------------------------------------------- */
+  /* The brand kit's reference HTML uses a family of greys (#5f6b73 muted text,
+     #dde0dd borders, #f8f8f5 table headers) that are not in the token file.
+     Rather than paste those hexes into component styles — which the tripwire
+     forbids, and rightly, since they would drift — each is DERIVED from a real
+     brand colour with color-mix. Same result on screen, one source of truth. */
+  --im-text-muted: color-mix(in srgb, var(--im-carbon) 62%, var(--im-warm-white));
+  --im-border: var(--im-mist);
+  --im-border-strong: color-mix(in srgb, var(--im-mist) 70%, var(--im-concrete));
+  --im-surface-sunken: color-mix(in srgb, var(--im-warm-white) 65%, var(--im-white));
+  --im-overlay: color-mix(in srgb, var(--im-carbon) 55%, transparent);
+
+  /* On the carbon sidebar and the field header, where text sits on dark. */
+  --im-on-dark: var(--im-warm-white);
+  --im-on-dark-muted: color-mix(in srgb, var(--im-warm-white) 68%, var(--im-carbon));
+  --im-on-dark-border: color-mix(in srgb, var(--im-warm-white) 22%, var(--im-carbon));
+
+  /* The demo identity bar. Tinted so it reads as scaffolding, never as auth. */
+  --im-demo-bar: color-mix(in srgb, var(--im-signal-coral) 12%, var(--im-warm-white));
+  --im-demo-border: color-mix(in srgb, var(--im-signal-coral) 34%, var(--im-warm-white));
+
+  /* --- Field ergonomics -------------------------------------------------- */
+  /* The brand's own .im-button-primary is min-height 44px. That is the minimum
+     tap target a fitter can hit one-handed in a depot forecourt, so it is a
+     token rather than a number repeated across components. */
+  --im-tap-target: 44px;
+}
+
+/* --- Minimal body reset --------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--im-carbon);
+  background: var(--im-warm-white);
+  font-family: var(--im-font-resolved);
+  font-size: var(--im-text-body-size);
+  font-weight: var(--im-text-body-weight);
+  line-height: var(--im-text-body-line);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Form controls do not inherit type by default. */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}

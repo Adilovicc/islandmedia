@@ -1,0 +1,26 @@
+.grid {
+  display: grid;
+  gap: var(--im-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  margin: 0;
+}
+
+.term {
+  margin: 0;
+  color: var(--im-text-muted);
+  font-size: var(--im-text-label-size);
+  font-weight: var(--im-text-label-weight);
+  letter-spacing: var(--im-text-label-tracking);
+  text-transform: uppercase;
+}
+
+.value {
+  margin: var(--im-space-2) 0 0;
+  font-size: var(--im-text-body-size);
+  font-weight: var(--im-text-label-weight);
+}
+
+.none {
+  color: var(--im-text-muted);
+  font-weight: var(--im-text-body-weight);
+}

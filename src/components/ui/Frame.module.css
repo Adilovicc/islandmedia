@@ -1,0 +1,43 @@
+/* Ported from .im-public-frame in docs/brand/island-media.css — the corner
+   bracket motif, which is the brand's "public frame" idea: an advert is a frame
+   placed in public space. Sizes follow .frame-corners in ui-examples.css. */
+
+.frame {
+  position: relative;
+}
+
+.frame::before,
+.frame::after {
+  position: absolute;
+  z-index: 2;
+  width: var(--im-space-6);
+  height: var(--im-space-6);
+  border-color: var(--im-signal-coral);
+  content: "";
+  pointer-events: none;
+}
+
+.frame::before {
+  top: 0;
+  left: 0;
+  border-top: var(--im-space-2) solid var(--im-signal-coral);
+  border-left: var(--im-space-2) solid var(--im-signal-coral);
+}
+
+.frame::after {
+  right: 0;
+  bottom: 0;
+  border-right: var(--im-space-2) solid var(--im-signal-coral);
+  border-bottom: var(--im-space-2) solid var(--im-signal-coral);
+}
+
+/* Inset variant, as used over imagery in the client hero. */
+.inset::before {
+  top: var(--im-space-4);
+  left: var(--im-space-4);
+}
+
+.inset::after {
+  right: var(--im-space-4);
+  bottom: var(--im-space-4);
+}

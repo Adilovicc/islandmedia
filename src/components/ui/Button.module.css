@@ -1,0 +1,84 @@
+/* Ported from .im-button-primary in docs/brand/island-media.css.
+   The brand's own button is min-height 44px — a real tap target, not a
+   decorative choice — so every variant inherits it from --im-tap-target. */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--im-space-2);
+  min-height: var(--im-tap-target);
+  padding: 0 var(--im-space-5);
+  border: 1px solid transparent;
+  border-radius: var(--im-radius-control);
+  font-size: var(--im-text-body-size);
+  font-weight: var(--im-text-label-weight);
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button:focus-visible {
+  outline: 0;
+  box-shadow: var(--im-focus-ring);
+}
+
+.button:disabled,
+.button[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* --- Variants ------------------------------------------------------------ */
+
+.primary {
+  color: var(--im-carbon);
+  background: var(--im-signal-coral);
+}
+
+.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--im-signal-coral) 88%, var(--im-carbon));
+}
+
+.secondary {
+  border-color: var(--im-border-strong);
+  color: var(--im-carbon);
+  background: var(--im-white);
+}
+
+.secondary:hover:not(:disabled) {
+  border-color: var(--im-signal-coral);
+}
+
+.danger {
+  color: var(--im-white);
+  background: var(--im-danger);
+}
+
+.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--im-danger) 88%, var(--im-carbon));
+}
+
+.ghost {
+  padding: 0 var(--im-space-3);
+  color: var(--im-text-muted);
+  background: transparent;
+}
+
+.ghost:hover:not(:disabled) {
+  color: var(--im-carbon);
+  background: var(--im-surface-sunken);
+}
+
+/* --- Modifiers ----------------------------------------------------------- */
+
+.small {
+  min-height: var(--im-space-6);
+  padding: 0 var(--im-space-4);
+  font-size: var(--im-text-small-size);
+}
+
+.fullWidth {
+  width: 100%;
+}

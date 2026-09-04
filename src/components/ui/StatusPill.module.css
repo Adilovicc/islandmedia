@@ -1,0 +1,43 @@
+/* Ported from .im-status-{success,warning,danger,info} in
+   docs/brand/island-media.css, which are solid colour with white text.
+   Pill geometry follows .tag in ui-examples.css. */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--im-space-6);
+  padding: 0 var(--im-space-3);
+  border-radius: var(--im-radius-full);
+  font-size: var(--im-text-label-size);
+  font-weight: var(--im-text-label-weight);
+  line-height: var(--im-text-label-line);
+  white-space: nowrap;
+}
+
+.success {
+  color: var(--im-white);
+  background: var(--im-success);
+}
+
+.warning {
+  color: var(--im-white);
+  background: var(--im-warning);
+}
+
+.danger {
+  color: var(--im-white);
+  background: var(--im-danger);
+}
+
+.info {
+  color: var(--im-white);
+  background: var(--im-info);
+}
+
+/* Not in the brand kit. Needed for states that are neither good nor bad and
+   should recede: a released hold, a dropped request item, a withdrawn enquiry.
+   Colouring those danger-red would tell the reader something went wrong. */
+.neutral {
+  color: var(--im-carbon);
+  background: var(--im-mist);
+}

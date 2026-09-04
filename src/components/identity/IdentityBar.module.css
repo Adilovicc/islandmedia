@@ -1,0 +1,94 @@
+/* The demo identity control.
+   Deliberately tinted and labelled so it never reads as authentication — it is
+   scaffolding for a walkthrough, and a reviewer should be able to tell that at
+   a glance rather than wondering why the app has no password field. */
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--im-space-3) var(--im-space-4);
+  padding: var(--im-space-2) var(--im-space-5);
+  border-bottom: 1px solid var(--im-demo-border);
+  background: var(--im-demo-bar);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--im-space-5);
+  padding: 0 var(--im-space-2);
+  border-radius: var(--im-radius-small);
+  background: var(--im-signal-coral);
+  color: var(--im-carbon);
+  font-size: var(--im-text-label-size);
+  font-weight: var(--im-text-label-weight);
+  letter-spacing: var(--im-text-label-tracking);
+  text-transform: uppercase;
+}
+
+.explain {
+  flex: 1;
+  min-width: 20ch;
+  margin: 0;
+  color: var(--im-text-muted);
+  font-size: var(--im-text-small-size);
+  line-height: var(--im-text-small-line);
+}
+
+.form {
+  display: flex;
+  align-items: center;
+  gap: var(--im-space-2);
+}
+
+.label {
+  font-size: var(--im-text-label-size);
+  font-weight: var(--im-text-label-weight);
+  letter-spacing: var(--im-text-label-tracking);
+  text-transform: uppercase;
+}
+
+.select {
+  min-height: var(--im-tap-target);
+  max-width: 34ch;
+  padding: 0 var(--im-space-3);
+  border: 1px solid var(--im-demo-border);
+  border-radius: var(--im-radius-control);
+  background: var(--im-white);
+  color: var(--im-carbon);
+  font-size: var(--im-text-small-size);
+}
+
+.select:focus-visible {
+  outline: 0;
+  border-color: var(--im-signal-coral);
+  box-shadow: var(--im-focus-ring);
+}
+
+.submit {
+  min-height: var(--im-tap-target);
+  padding: 0 var(--im-space-4);
+  border: 1px solid var(--im-demo-border);
+  border-radius: var(--im-radius-control);
+  background: var(--im-white);
+  color: var(--im-carbon);
+  font-size: var(--im-text-small-size);
+  font-weight: var(--im-text-label-weight);
+  cursor: pointer;
+}
+
+/* Only shown when JavaScript has not taken over the change handler. */
+.submit:focus-visible {
+  outline: 0;
+  box-shadow: var(--im-focus-ring);
+}
+
+.current {
+  color: var(--im-carbon);
+  font-size: var(--im-text-small-size);
+}
+
+.currentName {
+  font-weight: var(--im-text-label-weight);
+}
