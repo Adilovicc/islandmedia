@@ -35,14 +35,64 @@ export const BUCKETS = {
 
 export type BucketName = (typeof BUCKETS)[keyof typeof BUCKETS];
 
+/**
+ * Read a configuration value, trimmed and checked.
+ *
+ * The trim is not defensive padding, it fixes a real failure. The access key id
+ * and region are interpolated verbatim into the SigV4 `Authorization` header,
+ * and pasting a value into a dashboard field very often carries a trailing
+ * newline along with it. Node then rejects the whole request with
+ * `ERR_INVALID_CHAR: Invalid character in header content ["authorization"]`,
+ * which names the header rather than the variable and sends you looking at the
+ * signing code instead of at the paste.
+ *
+ * Anything still illegal after trimming is reported by NAME, so the next person
+ * gets a one-line diagnosis instead of that error.
+ */
 function required(name: string, fallback: string | undefined): string {
-  const value = process.env[name] ?? fallback;
-  if (!value) {
+  const raw = process.env[name] ?? fallback;
+  if (!raw) {
     throw new Error(
       `${name} is not set. Run \`neon env pull\` locally, or set the NEON_S3_* variables in Vercel.`,
     );
   }
+
+  const value = raw.trim();
+
+  // Printable US-ASCII is what a header value may legally contain.
+  const illegal = /[^\x20-\x7e]/.exec(value);
+  if (illegal) {
+    throw new Error(
+      `${name} contains a character that cannot go in an HTTP header ` +
+        `(code point ${illegal[0].codePointAt(0)} at index ${illegal.index}). ` +
+        `Re-copy the value without surrounding quotes or line breaks.`,
+    );
+  }
+
   return value;
+}
+
+/**
+ * A description of a configuration value that is safe to log: shape only, never
+ * content. Used by the storage spike so a misconfigured deployment can be
+ * diagnosed without printing a credential into a response body.
+ */
+export function describeEnv(name: string, fallbackName?: string) {
+  const raw = process.env[name] ?? (fallbackName ? process.env[fallbackName] : undefined);
+  if (raw === undefined) return { name, present: false } as const;
+
+  const trimmed = raw.trim();
+  const illegal = /[^\x20-\x7e]/.exec(trimmed);
+
+  return {
+    name,
+    present: true,
+    source: process.env[name] !== undefined ? name : fallbackName,
+    length: raw.length,
+    hadSurroundingWhitespace: raw !== trimmed,
+    hasSurroundingQuotes: /^["'].*["']$/.test(trimmed),
+    illegalCharCodePoint: illegal ? illegal[0].codePointAt(0) : null,
+  } as const;
 }
 
 let client: S3Client | undefined;

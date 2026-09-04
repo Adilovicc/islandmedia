@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
-import { BUCKETS, getObject, presignedGetUrl, putObject } from "@/lib/storage";
+import { BUCKETS, describeEnv, getObject, presignedGetUrl, putObject } from "@/lib/storage";
 
 /**
  * SPIKE C — Neon Object Storage from a deployed function.
@@ -69,7 +69,22 @@ export async function GET() {
         passed: false,
         key,
         error: String(error),
-        hint: "A SignatureDoesNotMatch or region mismatch here means the client picked up Vercel's AWS_REGION. Set NEON_S3_REGION and NEON_S3_ENDPOINT in the Vercel project.",
+        // Shape only, never content: enough to spot a bad paste without
+        // printing a credential into a response body.
+        config: [
+          describeEnv("NEON_S3_REGION", "AWS_REGION"),
+          describeEnv("NEON_S3_ENDPOINT", "AWS_ENDPOINT_URL_S3"),
+          describeEnv("NEON_S3_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID"),
+          describeEnv("NEON_S3_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY"),
+        ],
+        hints: {
+          ERR_INVALID_CHAR:
+            "A value carries a newline or control character into the Authorization header. Look for hadSurroundingWhitespace or illegalCharCodePoint below.",
+          SignatureDoesNotMatch:
+            "The secret is wrong, or was pasted with surrounding quotes. Check hasSurroundingQuotes.",
+          region:
+            "If source says AWS_REGION on Vercel, the NEON_S3_* variable is missing and the client fell back to Vercel's own region.",
+        },
       },
       { status: 500 },
     );
