@@ -10,7 +10,8 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx --env-file=.env.local prisma/seed.ts",
-    "build:template": "tsx scripts/make-contract-template.ts"
+    "build:template": "tsx scripts/make-contract-template.ts",
+    "env:vercel": "node scripts/sync-vercel-env.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1126.0",
@@ -23,7 +24,8 @@
     "next": "16.3.4",
     "pizzip": "^3.2.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "vercel": "^59.11.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

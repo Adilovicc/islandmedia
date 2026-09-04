@@ -43,3 +43,6 @@ next-env.d.ts
 
 # prisma client is generated, not authored
 /src/generated
+
+.vercel
+.env*
